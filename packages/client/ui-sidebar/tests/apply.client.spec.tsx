@@ -11,6 +11,7 @@ import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
 import { HeaderLeadingControls } from '../src/client/HeaderLeadingControls.tsx'
 import { apply as hostApply } from '../src/index.ts'
+import { createTestSettingsForm } from './settings-form.ts'
 
 const owners = new Set<Fiber>()
 afterEach(async () => {
@@ -39,6 +40,8 @@ async function bench(declare = true) {
   ctx.provide('layout', layout)
   ctx.provide('uiWorkspace', uiWorkspace as never)
   ctx.provide('locale', new LocaleRuntime(ctx))
+  const settingsForm = createTestSettingsForm()
+  ctx.provide('configForms', { get: () => settingsForm } as never)
   const slots = ctx.get('slots') as SlotRegistry
   if (declare) {
     slots.register(
@@ -50,16 +53,47 @@ async function bench(declare = true) {
       SidebarFrame,
     )
   }
-  return { ctx, slots, layout, uiWorkspace }
+  return { ctx, slots, layout, uiWorkspace, settingsForm }
 }
 
 describe('ui-sidebar apply', () => {
-  it('keeps the host Loader entry inert', () => {
-    expect(hostApply).not.toThrow()
+  it('opts the host entry out of the generated settings page', async () => {
+    const root = new Context()
+    let context: Context | undefined
+    const owner = root.plugin((owned: Context) => { context = owned })
+    owners.add(owner)
+    await owner.await()
+    if (context === undefined) throw new Error('the host fixture owner did not activate')
+    const configure = vi.fn(() => () => {})
+    context.provide('settings', { configure } as never)
+    hostApply(context)
+    await vi.waitFor(() => { expect(configure).toHaveBeenCalledWith({ auto: false }, expect.anything()) })
   })
 
   it('declares only the services it uses', () => {
-    expect(inject).toEqual(['slots', 'layout', 'uiWorkspace', 'locale', 'shortcuts'])
+    expect(inject).toEqual(['slots', 'layout', 'uiWorkspace', 'locale', 'shortcuts', 'configForms'])
+  })
+
+  it('stores an unpinned launcher through the settings form', async () => {
+    const b = await bench()
+    const sidebar = b.ctx.plugin({ inject: [...inject], apply })
+    await sidebar.await()
+    const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
+    injected.setPinned('custom-panel', false)
+    expect(injected.hooks.entryPins.getSnapshot()).toEqual(['custom-panel'])
+    await vi.waitFor(() => { expect(b.settingsForm.written).toEqual([['custom-panel']]) })
+    expect(injected.hooks.entryPins.getSnapshot()).toEqual(['custom-panel'])
+    await sidebar.dispose()
+  })
+
+  it('restores a stored pin choice on the next mount', async () => {
+    const b = await bench()
+    b.settingsForm.store(['custom-panel'])
+    const sidebar = b.ctx.plugin({ inject: [...inject], apply })
+    await sidebar.await()
+    const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
+    expect(injected.hooks.entryPins.getSnapshot()).toEqual(['custom-panel'])
+    await sidebar.dispose()
   })
 
   it('registers the shell and declares its child seats', async () => {

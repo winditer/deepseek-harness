@@ -67,7 +67,7 @@
       "path": "../../schedule/schedule"
     },
     {
-      "path": "../ui-sidebar"
+      "path": "../ui-sidebar/tsconfig.client.json"
     },
     {
       "path": "../ui-conversation/tsconfig.client.json"

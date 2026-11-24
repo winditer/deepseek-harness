@@ -10,7 +10,11 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the Session root standard-props merge.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+// Type-only: the ctx.configForms Context merge. The pin list persists through it.
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import { SIDEBAR_SETTINGS_NAMESPACE, type SidebarSettings } from '../settings.ts'
 import type { SidebarPanelMetadata, SidebarRootInjected, SidebarSectionInjected } from './contract/slots.ts'
+import { createHostPinStorage } from './host-pins.ts'
 import { createPanelPins } from './panel-pins.ts'
 import { HeaderLeadingControls } from './HeaderLeadingControls.tsx'
 import { SidebarRoot } from './SidebarRoot.tsx'
@@ -45,7 +49,7 @@ interface WorkspaceNavigation {
 }
 
 /** Services required by the sidebar plugin. */
-export const inject = ['slots', 'layout', 'uiWorkspace', 'locale', 'shortcuts']
+export const inject = ['slots', 'layout', 'uiWorkspace', 'locale', 'shortcuts', 'configForms']
 
 /** Registers the sidebar shell and its service callbacks.
  * @param ctx - Client root context.
@@ -69,7 +73,10 @@ export function apply(ctx: ClientContext): void {
   }
   ctx.effect(() => ctx.slots.subscribe('sidebar.panellist', syncPanels), 'ui-sidebar: panel entries')
   ctx.effect(() => ctx.locale.subscribe(syncPanels), 'ui-sidebar: panel labels')
-  const panelPins = createPanelPins()
+  const panelPins = createPanelPins(createHostPinStorage(
+    ctx.configForms.get<SidebarSettings>(SIDEBAR_SETTINGS_NAMESPACE),
+  ))
+  ctx.effect(() => panelPins.dispose, 'ui-sidebar: panel pin storage')
   const entryActions = {
     getSnapshot: () => ctx.slots.entriesOfSlot('sidebar.panellist.actions').length > 0,
     subscribe: (listener: () => void) => ctx.slots.subscribe('sidebar.panellist.actions', listener),

@@ -46,7 +46,7 @@
       "path": "../ui-renderer"
     },
     {
-      "path": "../ui-sidebar"
+      "path": "../ui-sidebar/tsconfig.client.json"
     },
     {
       "path": "../ui-slots"

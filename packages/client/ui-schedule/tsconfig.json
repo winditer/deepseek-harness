@@ -33,7 +33,7 @@
       "path": "../ui-layout"
     },
     {
-      "path": "../ui-sidebar"
+      "path": "../ui-sidebar/tsconfig.client.json"
     },
     {
       "path": "../ui-sidebar-right"
